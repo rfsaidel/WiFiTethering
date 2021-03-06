@@ -2,6 +2,7 @@ package com.rfsaidel.wifitethering
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -9,6 +10,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -17,28 +20,42 @@ import com.rfsaidel.wifitethering.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
+
+    private lateinit var mContext : Context
     private var settingsPermission : Boolean = false
     private var locationPermission : Boolean = false
+    private var bluetoothPermission : Boolean = false
     private val MY_PERMISSIONS_MANAGE_WRITE_SETTINGS = 100
     private val MY_PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 200
+    private val MY_PERMISSIONS_BLUETOOTH = 300
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    var mMyOreoWifiManager: MyOreoWifiManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        mContext = this
 
         binding.enablePermissions.setOnClickListener{
-            Log.i(TAG,"Permission:\n   Settings: "+settingsPermission+"\n   Location: "+locationPermission)
+            Log.i(TAG,"Permission >> Settings: "+settingsPermission+" Location: "+locationPermission)
             settingsPermission()
             locationPermission()
         }
 
         binding.enableTethering.setOnClickListener{
             Log.i(TAG,"Enable Tethering")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                hotspotOreo(true)
+            }
         }
 
         binding.disableTethering.setOnClickListener{
             Log.i(TAG,"Disable Tethering")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                hotspotOreo(false)
+            }
         }
 
         binding.selectBtDevice.setOnClickListener{
@@ -56,6 +73,8 @@ class MainActivity : AppCompatActivity() {
                 this.startActivityForResult(
                     intent, MY_PERMISSIONS_MANAGE_WRITE_SETTINGS
                 )
+            }else{
+                settingsPermission = true
             }
         }
     }
@@ -79,6 +98,10 @@ class MainActivity : AppCompatActivity() {
                 // result of the request.
             }
         }
+    }
+
+    private fun bluetoothPermission(){
+
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -123,6 +146,30 @@ class MainActivity : AppCompatActivity() {
                 }
                 return
             }
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private fun hotspotOreo(turnOn: Boolean) {
+        if (mMyOreoWifiManager == null) {
+            mMyOreoWifiManager = MyOreoWifiManager(mContext)
+        }
+        if (turnOn) {
+
+            //this dont work
+            val callback: StartTetheringCallback = object : StartTetheringCallback() {
+                override fun onTetheringStarted() {
+                   Log.i(TAG,"Tethering Started")
+                }
+
+                override fun onTetheringFailed() {
+                    Log.i(TAG,"Tethering Started FAILURE")
+                }
+            }
+            mMyOreoWifiManager!!.startTethering(callback)
+        } else {
+            mMyOreoWifiManager!!.stopTethering()
+            Log.i(TAG,"Tethering Stopped")
         }
     }
 }
