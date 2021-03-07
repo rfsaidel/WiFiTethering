@@ -2,39 +2,46 @@ package com.rfsaidel.wifitethering
 
 import android.Manifest
 import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.renderscript.ScriptGroup
 import android.util.Log
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.rfsaidel.wifitethering.databinding.ActivityMainBinding
 
+
 class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
 
     private lateinit var mContext : Context
+    lateinit var binding : ActivityMainBinding
     private var settingsPermission : Boolean = false
     private var locationPermission : Boolean = false
     private var bluetoothPermission : Boolean = false
     private val MY_PERMISSIONS_MANAGE_WRITE_SETTINGS = 100
     private val MY_PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 200
     private val MY_PERMISSIONS_BLUETOOTH = 300
+    var btAdapter: BluetoothAdapter? = null
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     var mMyOreoWifiManager: MyOreoWifiManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         mContext = this
 
@@ -60,7 +67,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.selectBtDevice.setOnClickListener{
             Log.i(TAG,"Select BT Device")
+            CheckBluetoothState()
         }
+
+        btAdapter = BluetoothAdapter.getDefaultAdapter()
+        setupBluetoothReceiver()
     }
 
     private fun settingsPermission(){
@@ -107,6 +118,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         // Check which request we're responding to
+        Log.i(TAG, "onActivityResult: "+requestCode)
         if (requestCode == MY_PERMISSIONS_MANAGE_WRITE_SETTINGS) {
             // Make sure the request was successful
             if (resultCode == Activity.RESULT_OK || resultCode == Activity.RESULT_CANCELED) {
@@ -170,6 +182,59 @@ class MainActivity : AppCompatActivity() {
         } else {
             mMyOreoWifiManager!!.stopTethering()
             Log.i(TAG,"Tethering Stopped")
+        }
+    }
+
+    private fun CheckBluetoothState() {
+        // Checks for the Bluetooth support and then makes sure it is turned on
+        // If it isn't turned on, request to turn it on
+        // List paired devices
+        Log.i(TAG,"CheckBluetoothState")
+        if (btAdapter == null) {
+            Log.i(TAG,"Bluetooth NOT supported. Aborting.")
+            return
+        } else {
+            if (btAdapter!!.isEnabled()) {
+                Log.i(TAG,"Bluetooth is enabled...")
+
+                // Listing paired devices
+                Log.i(TAG,"Paired Devices are:")
+                val devices: Set<BluetoothDevice> = btAdapter!!.getBondedDevices()
+                for (device in devices) {
+                    Log.i(TAG,"""Device: ${device.name}, $device""")
+                }
+            } else {
+                //Prompt user to turn on Bluetooth
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                startActivityForResult(enableBtIntent, MY_PERMISSIONS_BLUETOOTH)
+            }
+        }
+    }
+
+    private fun setupBluetoothReceiver() {
+        val btReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                handleBtEvent(intent)
+            }
+        }
+        val eventFilter = IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED)
+        eventFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        mContext.registerReceiver(btReceiver, eventFilter)
+    }
+
+    private fun handleBtEvent(intent: Intent) {
+        val action = intent.action
+        val deviceName = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)?.name
+        Log.d(TAG, "!!!! action received: $action")
+
+        if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
+            Log.d(TAG, "!!!! BT CONNECTED: $deviceName")
+            binding.enableTethering.callOnClick()
+        }
+
+        if (BluetoothDevice.ACTION_ACL_DISCONNECTED == action) {
+            Log.d(TAG, "!!!! BT DISCONNECTED: $deviceName")
+            binding.disableTethering.callOnClick()
         }
     }
 }
