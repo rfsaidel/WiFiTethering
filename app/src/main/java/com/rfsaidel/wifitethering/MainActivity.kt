@@ -1,14 +1,10 @@
 package com.rfsaidel.wifitethering
 
 import android.Manifest
-import android.R
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -36,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     private val MY_PERMISSIONS_MANAGE_WRITE_SETTINGS = 100
     private val MY_PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 200
     private val MY_PERMISSIONS_BLUETOOTH = 300
+    private val PREFS_NAME = "prefWiFiTethering"
+    private val PREFS_BT_DEVICE_NAME = "btDeviceName"
     var btAdapter: BluetoothAdapter? = null
     var btDeviceName: String = ""
 
@@ -114,10 +112,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun bluetoothPermission(){
-
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         // Check which request we're responding to
@@ -165,7 +159,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private fun hotspotOreo(turnOn: Boolean) {
+    public fun hotspotOreo(turnOn: Boolean) {
         if (mMyOreoWifiManager == null) {
             mMyOreoWifiManager = MyOreoWifiManager(mContext)
         }
@@ -227,6 +221,10 @@ class MainActivity : AppCompatActivity() {
             .setItems(btList) { dialog, which ->
                 Log.i(TAG,"Selected BT Device: "+btList[which])
                 btDeviceName = btList[which].toString()
+                val settings: SharedPreferences = applicationContext.getSharedPreferences(PREFS_NAME, 0)
+                val editor: SharedPreferences.Editor = settings.edit()
+                editor.putString(PREFS_BT_DEVICE_NAME, btDeviceName)
+                editor.apply()
                 Toast.makeText(mContext, "Device Selected: "+btDeviceName, Toast.LENGTH_SHORT).show()
             }
             .show()
