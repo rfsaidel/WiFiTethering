@@ -1,6 +1,7 @@
 package com.rfsaidel.wifitethering
 
 import android.Manifest
+import android.R
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -13,12 +14,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.renderscript.ScriptGroup
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsaidel.wifitethering.databinding.ActivityMainBinding
 
 
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private val MY_PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 200
     private val MY_PERMISSIONS_BLUETOOTH = 300
     var btAdapter: BluetoothAdapter? = null
+    var btDeviceName: String = ""
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     var mMyOreoWifiManager: MyOreoWifiManager? = null
@@ -200,15 +203,33 @@ class MainActivity : AppCompatActivity() {
                 // Listing paired devices
                 Log.i(TAG,"Paired Devices are:")
                 val devices: Set<BluetoothDevice> = btAdapter!!.getBondedDevices()
+                var i = 0
+                var btList : Array<String?> = arrayOfNulls(devices.size)
                 for (device in devices) {
+                    btList[i++] = device.name
                     Log.i(TAG,"""Device: ${device.name}, $device""")
                 }
+                showBluetoothDeviceList(btList)
+
             } else {
                 //Prompt user to turn on Bluetooth
                 val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 startActivityForResult(enableBtIntent, MY_PERMISSIONS_BLUETOOTH)
             }
         }
+    }
+
+    private fun showBluetoothDeviceList(btList: Array<String?>) {
+
+        MaterialAlertDialogBuilder(mContext)
+            .setTitle("Bluetooth Device List")
+            // Single-choice items (initialized with checked item)
+            .setItems(btList) { dialog, which ->
+                Log.i(TAG,"Selected BT Device: "+btList[which])
+                btDeviceName = btList[which].toString()
+                Toast.makeText(mContext, "Device Selected: "+btDeviceName, Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun setupBluetoothReceiver() {
@@ -229,12 +250,14 @@ class MainActivity : AppCompatActivity() {
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
             Log.d(TAG, "!!!! BT CONNECTED: $deviceName")
-            binding.enableTethering.callOnClick()
+            if(btDeviceName.equals(deviceName))
+                binding.enableTethering.callOnClick()
         }
 
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED == action) {
             Log.d(TAG, "!!!! BT DISCONNECTED: $deviceName")
-            binding.disableTethering.callOnClick()
+            if(btDeviceName.equals(deviceName))
+                binding.disableTethering.callOnClick()
         }
     }
 }
